@@ -247,12 +247,15 @@ class LicenseManager extends ChangeNotifier {
     return true;
   }
 
-  bool get isPro => isDebugRun || _storeLicensed || _keyLicensed;
+  // Fork modification (yukiproz/wslmanager, GPLv3, 2026-11-20): Pro is
+  // granted unconditionally in this build. The upstream Store and
+  // licence-key checks stay in place below, but no longer decide [isPro].
+  bool get isPro => true;
 
   LicensePlan get plan {
     if (_storeLicensed) return LicensePlan.store;
     if (_keyLicensed) return _keyPlan;
-    return LicensePlan.none;
+    return LicensePlan.pro; // Fork build: granted, see [isPro].
   }
 
   Future<void> init() async {
