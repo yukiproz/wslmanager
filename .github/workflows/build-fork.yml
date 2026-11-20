@@ -17,7 +17,7 @@ jobs:
         shell: pwsh
         run: |
           $raw = Get-Content pubspec.yaml -Raw
-          $m = [regex]::Match($raw, 'version:\\s*([^\\s#]+)')
+          $m = [regex]::Match($raw, 'version:\s*([^\s#]+)')
           if (-not $m.Success) { throw "version not found in pubspec.yaml" }
           "version=$($m.Groups[1].Value)" >> $env:GITHUB_OUTPUT
 
