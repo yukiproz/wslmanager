@@ -1,0 +1,55 @@
+name: build-fork
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: ver
+        shell: pwsh
+        run: |
+          $raw = Get-Content pubspec.yaml -Raw
+          $m = [regex]::Match($raw, 'version:\\s*([^\\s#]+)')
+          if (-not $m.Success) { throw "version not found in pubspec.yaml" }
+          "version=$($m.Groups[1].Value)" >> $env:GITHUB_OUTPUT
+
+      - name: Stamp version into constants.dart
+        shell: pwsh
+        run: |
+          (Get-Content .\lib\components\constants.dart) -replace 'currentVersion.*', 'currentVersion = "${{ steps.ver.outputs.version }}";' | Set-Content .\lib\components\constants.dart
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.6'
+
+      - run: flutter config --enable-windows-desktop
+
+      - run: flutter build windows --release
+
+      - name: Zip portable build
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "wslmanager-fork-v${{ steps.ver.outputs.version }}-win-x64.zip" -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wslmanager-fork-win-x64
+          path: wslmanager-fork-v${{ steps.ver.outputs.version }}-win-x64.zip
+          if-no-files-found: error
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "fork-v${{ steps.ver.outputs.version }}"
+          gh release create $tag --title "WSL Manager fork v${{ steps.ver.outputs.version }} (Pro granted, GPLv3)" --notes "Self-built from the yukiproz/wslmanager fork (GPLv3). Portable build: extract the zip and run the app exe inside. This build grants Pro unconditionally (fork modification in lib/api/license_manager.dart); AI features still need your own API credentials in Settings." "wslmanager-fork-v${{ steps.ver.outputs.version }}-win-x64.zip"
